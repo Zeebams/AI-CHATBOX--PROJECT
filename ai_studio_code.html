@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Studio Interface</title>
+    <style>
+        /* 
+         * DESIGN TOKENS (Google AI Studio / Material 3 Inspired)
+         */
+        :root {
+            --bg-app: #ffffff;
+            --bg-sidebar: #f8fafd; /* Light blueish gray */
+            --bg-input: #f0f4f9;   /* Material 3 search/input color */
+            --bg-user-bubble: #e3e3e3;
+            --bg-ai-bubble: transparent;
+            --bg-hover: #e3e6ea;
+            
+            --color-primary: #0b57d0; /* Google Blue */
+            --color-primary-hover: #0842a0;
+            --color-text-main: #1f1f1f;
+            --color-text-muted: #444746;
+            --color-text-light: #747775;
+            
+            --border-color: #e0e4e8;
+            --radius-full: 9999px;
+            --radius-lg: 24px;
+            --radius-md: 12px;
+            
+            --transition-smooth: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        /* RESET & BASE */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            /* Fallbacks to Roboto and standard system fonts for a native Google feel */
+            font-family: "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: var(--bg-app);
+            color: var(--color-text-main);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+        /* LAYOUT ARCHITECTURE */
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* OVERLAY FOR MOBILE SIDEBAR */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 40;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* SIDEBAR (FILE PREVIEWS) */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+            z-index: 50;
+        }
+
+        .sidebar-header {
+            padding: 20px 24px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--color-text-main);
+            border-bottom: 1px solid transparent;
+        }
+
+        .new-chat-btn {
+            margin: 0 16px 16px 16px;
+            padding: 12px 16px;
+            background: var(--bg-app);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--color-text-main);
+            transition: var(--transition-smooth);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .new-chat-btn:hover {
+            background: var(--bg-hover);
+        }
+
+        .sidebar-section-title {
+            padding: 0 24px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--color-text-light);
+            margin-bottom: 8px;
+            margin-top: 16px;
+        }
+
+        .file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 12px 20px 12px;
+        }
+
+        .file-item {
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+            transition: var(--transition-smooth);
+        }
+
+        .file-item:hover {
+            background-color: rgba(0, 0, 0, 0.04);
+            color: var(--color-text-main);
+        }
+
+        .file-item.active {
+            background-color: #d3e3fd; /* Google active light blue */
+            color: #041e49;
+            font-weight: 500;
+        }
+
+        .file-item svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            opacity: 0.8;
+        }
+
+        /* MAIN CONTENT AREA */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-app);
+            position: relative;
+        }
+
+        /* TOP NAVIGATION */
+        .top-nav {
+            height: 64px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 16px;
+        }
+
+        .menu-btn {
+            display: none;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--color-text-muted);
+            padding: 8px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .menu-btn:hover {
+            background: var(--bg-input);
+        }
+
+        .model-selector {
+            font-size: 1rem;
+            color: var(--color-text-main);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: var(--radius-md);
+            transition: var(--transition-smooth);
+        }
+
+        .model-selector:hover {
+            background: var(--bg-input);
+        }
+
+        .model-selector svg {
+            width: 16px;
+            height: 16px;
+            fill: var(--color-text-muted);
+        }
+
+        /* CHAT AREA */
+        .chat-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 0;
+            scroll-behavior: smooth;
+        }
+
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding: 0 24px;
+        }
+
+        /* MESSAGE BUBBLES */
+        .message-row {
+            display: flex;
+            gap: 16px;
+            animation: fadeIn 0.4s ease forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        .message-row.user {
+            justify-content: flex-end;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .avatar.ai {
+            background: linear-gradient(135deg, #1a73e8, #8ab4f8);
+            color: white;
+        }
+
+        .avatar.ai svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 12px 18px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            word-wrap: break-word;
+            border-radius: var(--radius-md);
+        }
+
+        .user .message-content {
+            background-color: var(--bg-user-bubble);
+            color: var(--color-text-main);
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai .message-content {
+            background-color: var(--bg-ai-bubble);
+            color: var(--color-text-main);
+            padding: 6px 0; /* Minimal padding for AI to match Google Studio */
+        }
+
+        /* INPUT AREA */
+        .input-wrapper {
+            padding: 16px 24px 24px;
+            background: var(--bg-app);
+            display: flex;
+            justify-content: center;
+        }
+
+        .input-box {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--bg-input);
+            border-radius: var(--radius-lg);
+            padding: 8px 8px 8px 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: box-shadow 0.2s ease, background 0.2s ease;
+            position: relative;
+        }
+
+        .input-box:focus-within {
+            background-color: #ffffff;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border-color);
+        }
+
+        .chat-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 1rem;
+            color: var(--color-text-main);
+            outline: none;
+            padding: 8px 0;
+            resize: none;
+            min-height: 24px;
+            max-height: 150px;
+        }
+
+        .chat-input::placeholder {
+            color: var(--color-text-light);
+        }
+
+        /* BUTTON CONTROLS */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--color-text-muted);
+            transition: var(--transition-smooth);
+        }
+
+        .icon-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--color-text-main);
+        }
+
+        /* Microphone special states */
+        .icon-btn.mic.listening {
+            color: #d93025; /* Google Red */
+            background-color: #fce8e6;
+            animation: micPulse 1.5s infinite;
+        }
+
+        /* Send button styling */
+        .icon-btn.send {
+            color: var(--color-primary);
+        }
+        
+        .icon-btn.send:hover {
+            background-color: #e8f0fe;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.92);
+        }
+
+        .icon-btn svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+        }
+
+        /* TYPING INDICATOR */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 0;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background-color: #a8c7fa; /* Soft blue */
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        /* ANIMATIONS */
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.6; }
+            40% { transform: scale(1.1); opacity: 1; }
+        }
+
+        @keyframes micPulse {
+            0% { box-shadow: 0 0 0 0 rgba(217, 48, 37, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(217, 48, 37, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 48, 37, 0); }
+        }
+
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                height: 100%;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .menu-btn {
+                display: block;
+            }
+
+            .input-wrapper {
+                padding: 12px 16px 16px;
+            }
+            
+            .chat-container {
+                padding: 0 16px;
+            }
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Mobile Overlay -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <!-- Sidebar / File Preview Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#0b57d0">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+                AI Studio
+            </div>
+
+            <button class="new-chat-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                Create new prompt
+            </button>
+
+            <div class="sidebar-section-title">Recent Files</div>
+            <div class="file-list">
+                <div class="file-item active">
+                    <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+                    <span>System design chat</span>
+                </div>
+                <div class="file-item">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                    <span>Data_analysis.csv</span>
+                </div>
+                <div class="file-item">
+                    <svg viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+                    <span>Python_script_v2.py</span>
+                </div>
+                <div class="file-item">
+                    <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+                    <span>Customer support prompt</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-nav">
+                <button class="menu-btn" id="menu-btn" aria-label="Toggle menu">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                    </svg>
+                </button>
+                <div class="model-selector">
+                    Gemini 1.5 Pro
+                    <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+                </div>
+            </header>
+
+            <!-- Chat Area -->
+            <div class="chat-scroll-area" id="chat-scroll">
+                <div class="chat-container" id="chat-container">
+                    
+                    <!-- AI Initial Message -->
+                    <div class="message-row ai">
+                        <div class="avatar ai">
+                            <!-- AI Sparkle Icon -->
+                            <svg viewBox="0 0 24 24">
+                                <path d="M19 3h-2.5l-1-2.5-1 2.5H12v2.5l2.5 1 1 2.5 1-2.5H19V3zm-7.5 4.5L10 4 8.5 7.5 5 9l3.5 1.5L10 14l1.5-3.5L15 9l-3.5-1.5z"/>
+                            </svg>
+                        </div>
+                        <div class="message-content">
+                            Hello. I am currently running on the selected model. You can preview your existing files in the left navigation panel. What would you like to work on today?
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-wrapper">
+                <div class="input-box">
+                    <input type="text" class="chat-input" id="chat-input" placeholder="Type something here..." autocomplete="off">
+                    
+                    <div class="controls">
+                        <!-- Microphone Button -->
+                        <button class="icon-btn mic" id="mic-btn" aria-label="Voice input">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                            </svg>
+                        </button>
+                        
+                        <!-- Send Button -->
+                        <button class="icon-btn send" id="send-btn" aria-label="Run prompt">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // DOM Elements
+        const chatContainer = document.getElementById('chat-container');
+        const chatScroll = document.getElementById('chat-scroll');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+        let isTyping = false;
+        let isListening = false;
+
+        // Realistic AI Responses
+        const aiResponses =[
+            "I've checked the files in your sidebar. The logic appears sound.",
+            "That's a great point. Here's a revised approach based on your input.",
+            "I can certainly help you write a script for that. Give me a moment.",
+            "Looking at the Python_script_v2.py file, we should optimize the loop.",
+            "To achieve that, we can utilize the Gemini API's function calling capability.",
+            "Understood. I have updated the context. What's the next step?"
+        ];
+
+        // Scroll helper
+        function scrollToBottom() {
+            chatScroll.scrollTop = chatScroll.scrollHeight;
+        }
+
+        // Sidebar Toggle Logic (Mobile)
+        function toggleSidebar() {
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('active');
+        }
+
+        menuBtn.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        // Microphone Visual Effect
+        micBtn.addEventListener('click', () => {
+            if(isListening) return; // Prevent double trigger
+            
+            isListening = true;
+            micBtn.classList.add('listening');
+            chatInput.placeholder = "Listening...";
+            
+            // Simulate listening for 2 seconds then "transcribing"
+            setTimeout(() => {
+                micBtn.classList.remove('listening');
+                chatInput.value = "Can you analyze the data in my recent files?";
+                chatInput.placeholder = "Type something here...";
+                isListening = false;
+                chatInput.focus();
+            }, 2000);
+        });
+
+        // Add Message to DOM
+        function appendMessage(text, sender) {
+            const row = document.createElement('div');
+            row.className = `message-row ${sender}`;
+            
+            let htmlContent = '';
+            
+            if (sender === 'ai') {
+                htmlContent += `
+                <div class="avatar ai">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 3h-2.5l-1-2.5-1 2.5H12v2.5l2.5 1 1 2.5 1-2.5H19V3zm-7.5 4.5L10 4 8.5 7.5 5 9l3.5 1.5L10 14l1.5-3.5L15 9l-3.5-1.5z"/>
+                    </svg>
+                </div>`;
+            }
+            
+            htmlContent += `<div class="message-content">${text}</div>`;
+            row.innerHTML = htmlContent;
+            
+            chatContainer.appendChild(row);
+            scrollToBottom();
+        }
+
+        // Show Typing Indicator
+        function showTypingIndicator() {
+            const row = document.createElement('div');
+            row.className = 'message-row ai';
+            row.id = 'typing-indicator';
+            
+            row.innerHTML = `
+                <div class="avatar ai">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 3h-2.5l-1-2.5-1 2.5H12v2.5l2.5 1 1 2.5 1-2.5H19V3zm-7.5 4.5L10 4 8.5 7.5 5 9l3.5 1.5L10 14l1.5-3.5L15 9l-3.5-1.5z"/>
+                    </svg>
+                </div>
+                <div class="message-content typing-indicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            
+            chatContainer.appendChild(row);
+            scrollToBottom();
+        }
+
+        // Remove Typing Indicator
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }
+
+        // Handle Sending Logic
+        function handleSendMessage() {
+            const message = chatInput.value.trim();
+            if (!message || isTyping) return;
+            
+            // 1. User Message
+            appendMessage(message, 'user');
+            chatInput.value = '';
+            
+            // 2. Typing State
+            isTyping = true;
+            showTypingIndicator();
+            
+            // 3. AI Response Simulation (1 to 2 seconds)
+            const delay = Math.random() * 1000 + 1000;
+            
+            setTimeout(() => {
+                removeTypingIndicator();
+                const randomText = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+                appendMessage(randomText, 'ai');
+                isTyping = false;
+            }, delay);
+        }
+
+        // Event Listeners for Chat
+        sendBtn.addEventListener('click', handleSendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+            }
+        });
+        
+        // Focus input on load
+        window.addEventListener('DOMContentLoaded', () => {
+            chatInput.focus();
+        });
+    </script>
+</body>
+</html>
